@@ -39,7 +39,7 @@ const RESTController = {
       var handled = false;
 
 	    var xhr = Ti.Network.createHTTPClient({
-	      timeout : 15000
+	      timeout : 120000
 	    });
 	    xhr.onload = function(e) {
         if (handled)
@@ -79,7 +79,7 @@ const RESTController = {
           return;
         handled = !0;
 
-        promise.reject(e.error);
+        promise.reject(xhr);
       };
 	    xhr.open(method, url, !0);
 	    xhr.setRequestHeader("Content-Type", "text/plain");
