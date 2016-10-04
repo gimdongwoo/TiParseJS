@@ -174,14 +174,15 @@ const RESTController = {
           // If we fail to parse the error text, that's okay.
           error = new ParseError(
             ParseError.INVALID_JSON,
-            'Received an error with invalid JSON from Parse: ' +
+            /* 'Received an error with invalid JSON from Parse: ' + */
               response.responseText
           );
         }
       } else {
         error = new ParseError(
           ParseError.CONNECTION_FAILED,
-          'XMLHttpRequest failed: ' + JSON.stringify(response)
+          /* 'XMLHttpRequest failed: ' + JSON.stringify(response) */
+          'The Internet connection appears to be offline'
         );
       }
 
