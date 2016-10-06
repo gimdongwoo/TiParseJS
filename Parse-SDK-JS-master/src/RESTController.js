@@ -180,11 +180,15 @@ const RESTController = {
             /* 'Received an error with invalid JSON from Parse: ' + */
               response.responseText
           );
+        } finally {
+          var logs = Ti.App.Properties.getObject('PARSE.ERROR', []);
+            logs.push({ 
+              at:       new Date().getTime(), 
+              response: JSON.stringify(response),
+              error:    JSON.stringify(error)
+            });
+          Ti.App.Properties.setObject('PARSE.ERROR', logs);
         }
-
-        var logs = Ti.App.Properties.getObject('PARSE.ERROR', []);
-            logs.push({ at: new Date().getTime(), response: JSON.stringify(response) });
-        Ti.App.Properties.setObject('PARSE.ERROR', logs);
 
       } else {
         error = new ParseError(
