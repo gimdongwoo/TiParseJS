@@ -39,7 +39,8 @@ const RESTController = {
       var handled = false;
 
 	    var xhr = Ti.Network.createHTTPClient({
-	      timeout : 120000
+	      timeout : 120000,
+        _payloadString : data
 	    });
 	    xhr.onload = function(e) {
         if (handled)
@@ -65,7 +66,9 @@ const RESTController = {
             );
             setTimeout(dispatch, delay);
           } else if (xhr.status === 0) {
-            promise.reject('Unable to connect to the Parse API');
+            // promise.reject('Unable to connect to the Parse API');
+            xhr.responseText = 'Unable to connect to the Parse API';
+            promise.reject(xhr);
           } else {
             // After the retry limit is reached, fail
             promise.reject(xhr);
@@ -174,14 +177,24 @@ const RESTController = {
           // If we fail to parse the error text, that's okay.
           error = new ParseError(
             ParseError.INVALID_JSON,
-            'Received an error with invalid JSON from Parse: ' +
+            /* 'Received an error with invalid JSON from Parse: ' + */
               response.responseText
           );
+        } finally {
+          var logs = Ti.App.Properties.getObject('PARSE.ERROR', []);
+            logs.push({ 
+              at:       new Date().getTime(), 
+              response: JSON.stringify(response),
+              error:    JSON.stringify(error)
+            });
+          Ti.App.Properties.setObject('PARSE.ERROR', logs);
         }
+
       } else {
         error = new ParseError(
           ParseError.CONNECTION_FAILED,
-          'XMLHttpRequest failed: ' + JSON.stringify(response)
+          /* 'XMLHttpRequest failed: ' + JSON.stringify(response) */
+          'The Internet connection appears to be offline'
         );
       }
 

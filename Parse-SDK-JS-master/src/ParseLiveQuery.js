@@ -1,15 +1,26 @@
+/**
+ * Copyright (c) 2015-present, Parse, LLC.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @flow
+ */
+
 import EventEmitter from './EventEmitter';
 import LiveQueryClient from './LiveQueryClient';
 import CoreManager from './CoreManager';
 import ParsePromise from './ParsePromise';
 
 function open() {
-  var LiveQueryController = CoreManager.getLiveQueryController();
+  const LiveQueryController = CoreManager.getLiveQueryController();
   LiveQueryController.open();
 }
 
 function close() {
-  var LiveQueryController = CoreManager.getLiveQueryController();
+  const LiveQueryController = CoreManager.getLiveQueryController();
   LiveQueryController.close();
 }
 
@@ -69,23 +80,19 @@ LiveQuery.on('error', () => {
 
 export default LiveQuery;
 
-let getSessionToken = () => {
-  let promiseUser = CoreManager.getUserController().currentUserAsync();
-  return promiseUser.then((currentUser) => {
-    return ParsePromise.as(currentUser ? currentUser.sessionToken : undefined);
-  }).then((sessionToken) => {
-    return ParsePromise.as(sessionToken);
+function getSessionToken() {
+  const controller = CoreManager.getUserController();
+  return controller.currentUserAsync().then((currentUser) => {
+    return currentUser ? currentUser.getSessionToken() : undefined;
   });
-};
+}
 
-let getLiveQueryClient = () => {
-  return CoreManager.getLiveQueryController().getDefaultLiveQueryClient().then((defaultLiveQueryClient) => {
-    return ParsePromise.as(defaultLiveQueryClient);
-  });
-};
+function getLiveQueryClient() {
+  return CoreManager.getLiveQueryController().getDefaultLiveQueryClient();
+}
 
 let defaultLiveQueryClient;
-let DefaultLiveQueryController = {
+const DefaultLiveQueryController = {
   setDefaultLiveQueryClient(liveQueryClient: any) {
     defaultLiveQueryClient = liveQueryClient;
   },
@@ -94,24 +101,31 @@ let DefaultLiveQueryController = {
       return ParsePromise.as(defaultLiveQueryClient);
     }
 
-    let sessionTokenPromise = getSessionToken();
-    return sessionTokenPromise.then((sessionToken) => {
+    return getSessionToken().then((sessionToken) => {
       let liveQueryServerURL = CoreManager.get('LIVEQUERY_SERVER_URL');
       
       if (liveQueryServerURL && liveQueryServerURL.indexOf('ws') !== 0) {
-        throw new Error('You need to set a proper Parse LiveQuery server url before using LiveQueryClient');
+        throw new Error(
+          'You need to set a proper Parse LiveQuery server url before using LiveQueryClient'
+        );
       }
-
+      
       // If we can not find Parse.liveQueryServerURL, we try to extract it from Parse.serverURL
       if (!liveQueryServerURL) {
-        let host = CoreManager.get('SERVER_URL').replace(/^https?:\/\//, '');
-        liveQueryServerURL = 'ws://' + host;
+        const tempServerURL = CoreManager.get('SERVER_URL');
+        let protocol = 'ws://';
+        // If Parse is being served over SSL/HTTPS, ensure LiveQuery Server uses 'wss://' prefix
+        if (tempServerURL.indexOf('https') === 0) {
+          protocol = 'wss://'
+        }
+        const host = tempServerURL.replace(/^https?:\/\//, '');
+        liveQueryServerURL = protocol + host;
         CoreManager.set('LIVEQUERY_SERVER_URL', liveQueryServerURL);
       }
 
-      let applicationId = CoreManager.get('APPLICATION_ID');
-      let javascriptKey = CoreManager.get('JAVASCRIPT_KEY');
-      let masterKey = CoreManager.get('MASTER_KEY');
+      const applicationId = CoreManager.get('APPLICATION_ID');
+      const javascriptKey = CoreManager.get('JAVASCRIPT_KEY');
+      const masterKey = CoreManager.get('MASTER_KEY');
       // Get currentUser sessionToken if possible
       defaultLiveQueryClient = new LiveQueryClient({
         applicationId,
@@ -121,15 +135,18 @@ let DefaultLiveQueryController = {
         sessionToken,
       });
       // Register a default onError callback to make sure we do not crash on error
+      // Cannot create these events on a nested way because of EventEmiiter from React Native
       defaultLiveQueryClient.on('error', (error) => {
         LiveQuery.emit('error', error);
-      }).on('open', () => {
+      });
+      defaultLiveQueryClient.on('open', () => {
         LiveQuery.emit('open');
-      }).on('close', () => {
+      });
+      defaultLiveQueryClient.on('close', () => {
         LiveQuery.emit('close');
       });
 
-      return ParsePromise.as(defaultLiveQueryClient);
+      return defaultLiveQueryClient;
     });
   },
   open() {
@@ -160,18 +177,23 @@ let DefaultLiveQueryController = {
         subscriptionWrap.query = subscription.query;
         subscriptionWrap.sessionToken = subscription.sessionToken;
         subscriptionWrap.unsubscribe = subscription.unsubscribe;
-
+        // Cannot create these events on a nested way because of EventEmiiter from React Native
         subscription.on('open', () => {
           subscriptionWrap.emit('open');
-        }).on('create', (object) => {
+        });
+        subscription.on('create', (object) => {
           subscriptionWrap.emit('create', object);
-        }).on('update', (object) => {
+        });
+        subscription.on('update', (object) => {
           subscriptionWrap.emit('update', object);
-        }).on('enter', (object) => {
+        });
+        subscription.on('enter', (object) => {
           subscriptionWrap.emit('enter', object);
-        }).on('leave', (object) => {
+        });
+        subscription.on('leave', (object) => {
           subscriptionWrap.emit('leave', object);
-        }).on('delete', (object) => {
+        });
+        subscription.on('delete', (object) => {
           subscriptionWrap.emit('delete', object);
         });
 
@@ -184,7 +206,10 @@ let DefaultLiveQueryController = {
     getLiveQueryClient().then((liveQueryClient) => {
       this.resolve(liveQueryClient.unsubscribe(subscription));
     });
-  }
+  },
+  _clearCachedDefaultClient() {
+    defaultLiveQueryClient = null;
+  },
 };
 
 CoreManager.setLiveQueryController(DefaultLiveQueryController);
